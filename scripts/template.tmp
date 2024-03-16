@@ -1,0 +1,13 @@
+
+
+// Standard Header
+#include <iostream>
+
+int main(int argc, char* argv[]) {
+    // Your main function code goes here
+    std::cout << "Start" << std::endl;
+
+   
+    std::cout << "Stop" << std::endl;
+    return 0;
+}

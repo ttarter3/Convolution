@@ -1,0 +1,3 @@
+[submodule "partysecond/cudasupportfunctions"]
+	path = partysecond/cudasupportfunctions
+	url = git@github.com:ttarter3/cudasupportfunctions.git
