@@ -86,20 +86,31 @@ int main(int argc, char* argv[]) {
       std::cout << in_img[ii] << ", ";
     } std::cout << std::endl;
 
-    Blur<float> blur(1080, 1920, 3, 3);
-    blur.Load(in_img.data());
+    for (int ii = 0; ii < 6; ii++) {
+        int N = 3; 
+        Blur<float> blur(1080, 1920, N, N);
+        blur.Load(in_img.data());
 
-    blur.Execute(tile_size, 0);
+        for (int ii = 0 ; ii < 100; ii++) {
+        std::cout << in_img[ii] << ", ";
+        } std::cout << std::endl;
 
-    blur.Unload(in_img.data());
+        // blur.Execute(tile_size, 0);
+        blur.Execute(tile_size, 3);
 
-    for (int ii = 0 ; ii < 100; ii++) {
-      std::cout << in_img[ii] << ", ";
-    } std::cout << std::endl;
+        blur.Unload(in_img.data());
 
-    std::string output_file("./data/output.img");
-    WriteFile(output_file, in_img);
+        for (int ii = 0 ; ii < 100; ii++) {
+        std::cout << in_img[ii] << ", ";
+        } std::cout << std::endl;
 
+        std::string output_file_fil("./data/Filter." + std::to_string(ii) + ".bin");
+        std::vector<float> fil = blur.GetMatrix().GetVector(); 
+        WriteFile(output_file_fil, fil);
+
+        std::string output_file_img("./data/Image." + std::to_string(ii) + ".bin");
+        WriteFile(output_file_img, in_img);
+    }
 
     std::cout << "Finish" << std::endl;
     return 0;

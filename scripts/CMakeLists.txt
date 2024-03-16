@@ -78,7 +78,7 @@ foreach( testsourcefile ${APP_SOURCES} )
     target_link_libraries(${testname} cudasupportfunctions)
     target_link_libraries(${testname} Convolution)
     target_link_libraries(${testname} cblas)
-    target_link_libraries(${testname} openblas)
+    # target_link_libraries(${testname} openblas)
     target_link_libraries(${testname} CUDA::cudart)
     target_link_libraries(${testname} CUDA::cublas)
     target_link_libraries(${testname} OpenMP::OpenMP_CXX) # Link OpenMP library

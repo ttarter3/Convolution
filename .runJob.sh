@@ -25,23 +25,23 @@ case $1 in
         ;;
 esac
 
-if [[ ! `cat submission.txt` =~ "Submitted" ]]; then
-   echo "Issue submitting..."
-   cat submission.txt
-   rm -f submission.txt
-   exit 1
-fi
+# if [[ ! `cat submission.txt` =~ "Submitted" ]]; then
+#    echo "Issue submitting..."
+#    cat submission.txt
+#    rm -f submission.txt
+#    exit 1
+# fi
 
-JOBNUM=`cat submission.txt | awk '{print $4}'`
+# JOBNUM=`cat submission.txt | awk '{print $4}'`
 
-rm -f submission.txt
+# rm -f submission.txt
 
-# wait for the job to get picked up and start producing output
-until [ -f slurm-$JOBNUM.out ]
-do 
-	sleep 1
-done
-mv slurm-$JOBNUM.out slurm-$JOBNUM.rjob_out
+# # wait for the job to get picked up and start producing output
+# until [ -f slurm-$JOBNUM.out ]
+# do 
+# 	sleep 1
+# done
+# mv slurm-$JOBNUM.out slurm-$JOBNUM.rjob_out
 
-# open the output file and follow th efile as new output is added
-less +F *.rjob_out*
+# # open the output file and follow th efile as new output is added
+# less +F *.rjob_out*

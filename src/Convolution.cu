@@ -7,6 +7,10 @@
 #include "Filter.hpp"
 #include "BlurNaiveKernel.cuh"
 #include "BlurSharedKernel.cuh"
+#include "BlurConstantKernel.cuh"
+#include "BlurSharedSharedKernel.cuh"
+#include "BlurSharedConstKernel.cuh"
+#include "BlurSharedEqualConstKernel.cuh"
 
 
 // Project Headers
@@ -26,6 +30,9 @@ Blur<T>::Blur(int height_img, int width_img, int height_filter, int width_filter
   // Device vectors
   CheckErrors(cudaMalloc((void**)&d_img_in_, height_img_ * width_img_ * sizeof(T)));
   CheckErrors(cudaMalloc((void**)&d_img_out_, height_img_ * width_img_ * sizeof(T)));
+
+  filter_ = GetFilter<T>(height_filter_, 0, 3);
+
 };
 
 template <typename T>
@@ -55,47 +62,110 @@ unsigned int Blur<T>::Execute(int tile_size, int switch_statement) {
   std::cout << "Threads: " << num_threads_per_block.x << "," << num_threads_per_block.y << "," << num_threads_per_block.z << std::endl;
   std::cout << "Blocks:  " << num_blocks_per_grid.x << "," << num_blocks_per_grid.y << "," << num_blocks_per_grid.z << std::endl;
 
-  Matrix<T> filter = GetFilter<T>(height_filter_, 0, 1);
-  filter.display();
+  
+  filter_.display();
 
 
-  Timer ti;
+  Timer ti; T * d_filt; 
   switch(switch_statement) {
   case 0:
     std::cout << "BlurNaiveKernel" << std::endl;
 
-    T * d_filt; 
-    CheckErrors(cudaMalloc((void**)&d_filt, filter.RowCnt() * filter.ColCnt() * sizeof(T)));
-    CheckErrors(cudaMemcpy(d_filt, &filter(0, 0), filter.RowCnt() * filter.ColCnt() * sizeof(T), cudaMemcpyHostToDevice));
+    
+    CheckErrors(cudaMalloc((void**)&d_filt, filter_.RowCnt() * filter_.ColCnt() * sizeof(T)));
+    CheckErrors(cudaMemcpy(d_filt, &filter_(0, 0), filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyHostToDevice));
 
     ti.start();
     BlurNaiveKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_);
     ti.stop();
 
+    // CheckErrors(cudaMemcpy(filter_.GetData(), d_img_in_, filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
+    // filter_.display();
+    // CheckErrors(cudaMemcpy(filter_.GetData(), d_img_out_, filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
+    // filter_.display();
 
-    CheckErrors(cudaMemcpy(filter.GetData(), d_img_in_, filter.RowCnt() * filter.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
-    filter.display();
-    CheckErrors(cudaMemcpy(filter.GetData(), d_img_out_, filter.RowCnt() * filter.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
-    filter.display();
+    CheckErrors(cudaMemcpy(filter_.GetData(), d_filt, filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
+    filter_.display();
+    
+    CheckErrors(cudaFree(d_filt));
+    break;
+  case 1:
+    std::cout << "BlurSharedKernel" << std::endl;  
 
-    CheckErrors(cudaMemcpy(filter.GetData(), d_filt, filter.RowCnt() * filter.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
-    filter.display();
+    CheckErrors(cudaMalloc((void**)&d_filt, filter_.RowCnt() * filter_.ColCnt() * sizeof(T)));
+    CheckErrors(cudaMemcpy(d_filt, filter_.GetData(), filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyHostToDevice));
+
+    ti.start();
+    BlurSharedKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_);
+    ti.stop();
+
+    CheckErrors(cudaMemcpy(filter_.GetData(), d_filt, filter_.RowCnt() * filter_.ColCnt() * sizeof(T), cudaMemcpyDeviceToHost));
+    filter_.display();
     
     CheckErrors(cudaFree(d_filt));
 
-
-
     break;
-  case 1:
-    std::cout << "BlurSharedKernel" << std::endl;
-    CopyFilter <<< num_blocks_per_grid, num_threads_per_block >>> (filter.GetData(), filter.ColCnt());
-    
 
+  case 2:
+    std::cout << "BlurConstantKernel" << std::endl;
+    
+    CheckErrors(cudaMemcpyToSymbol(constant_filter, filter_.GetData(), filter_.RowCnt() * filter_.ColCnt() * sizeof(float)));
     ti.start();
-    BlurSharedKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, height_filter_);
+    // d_filt is not necessary but I like the consistency
+    BlurConstantKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_); 
     ti.stop();
 
     break;
+  
+  case 3:
+    std::cout << "BlurSharedSharedKernel" << std::endl;
+    
+    num_threads_per_block = dim3(tile_size + (height_filter_ + 1) / 2 * 2, tile_size + (height_filter_ + 1) / 2 * 2, 1);
+    num_blocks_per_grid = dim3(
+    (height_img_ + tile_size - 1) / tile_size
+    , (width_img_ + tile_size - 1) / tile_size
+    , 1); 
+
+    ti.start();
+    BlurSharedSharedKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_);
+    ti.stop();
+
+    break;
+
+  case 4:
+    std::cout << "BlurSharedConstKernel" << std::endl;
+    
+    CheckErrors(cudaMemcpyToSymbol(constant_filter, filter_.GetData(), filter_.RowCnt() * filter_.ColCnt() * sizeof(float)));
+
+    num_threads_per_block = dim3(tile_size + (height_filter_ + 1) / 2 * 2, tile_size + (height_filter_ + 1) / 2 * 2, 1);
+    num_blocks_per_grid = dim3(
+    (height_img_ + tile_size - 1) / tile_size
+    , (width_img_ + tile_size - 1) / tile_size
+    , 1); 
+
+    ti.start();
+    BlurSharedConstKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_);
+    ti.stop();
+
+    break;
+
+  case 5:
+    std::cout << "BlurSharedEqualConstKernel" << std::endl;
+    
+    CheckErrors(cudaMemcpyToSymbol(constant_filter, filter_.GetData(), filter_.RowCnt() * filter_.ColCnt() * sizeof(float)));
+
+    num_threads_per_block = dim3(tile_size + (height_filter_ + 1) / 2 * 2, tile_size + (height_filter_ + 1) / 2 * 2, 1);
+    num_blocks_per_grid = dim3(
+    (height_img_ + tile_size - 1) / tile_size
+    , (width_img_ + tile_size - 1) / tile_size
+    , 1); 
+
+    ti.start();
+    BlurSharedEqualConstKernel <<< num_blocks_per_grid, num_threads_per_block >>> (d_img_in_, d_img_out_, height_img_, width_img_, d_filt, height_filter_);
+    ti.stop();
+
+    break;
+
   default:
     std::cout << "ERROROROROROR" << std::endl;
     exit(1);

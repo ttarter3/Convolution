@@ -18,6 +18,8 @@ public:
         data.resize(row * col, 0.0);
     }
 
+    Matrix() {};
+
     // Getters
     int RowCnt() const { return rows; }
     int ColCnt() const { return cols; }
@@ -29,6 +31,10 @@ public:
 
     T* GetData() {
         return data.data();
+    }
+
+    std::vector<T> GetVector() {
+        return data;
     }
 
     // Display matrix

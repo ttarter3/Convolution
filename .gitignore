@@ -4,3 +4,9 @@
 *.ptx
 *.cubin
 *.fatbin
+
+build/*
+install/*
+data/*
+
+*.qsub_out

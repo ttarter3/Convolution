@@ -26,7 +26,7 @@ __global__ void BlurNaiveKernel(T * img_in, T * img_out, int h_i, int w_i, T * f
                     
                 }
             }
-            img_out[row * w_i + col] = img_in[row * w_i + col]; // p_value;
+            img_out[row * w_i + col] = p_value; // p_value;
         }
     }
 }
